@@ -24,8 +24,32 @@
         </div>
     </nav>
 
+    <!-- Search Bar -->
+    <div class="container mx-auto mt-6 px-4">
+        <div class="relative">
+            <input type="text" 
+                   id="searchInput" 
+                   class="w-full p-4 pr-12 rounded-lg shadow-lg border focus:outline-none focus:ring-2 focus:ring-blue-500"
+                   placeholder="Search files, notes, events...">
+            <button onclick="performSearch()" 
+                    class="absolute right-4 top-1/2 transform -translate-y-1/2 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                Search
+            </button>
+        </div>
+    </div>
+
+    <!-- Search Results (Hidden by default) -->
+    <div id="searchResults" class="container mx-auto mt-6 px-4 hidden">
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-2xl font-bold mb-4">Search Results</h2>
+            <div id="searchResultsContent" class="space-y-4">
+                <!-- Search results will be displayed here -->
+            </div>
+        </div>
+    </div>
+
     <!-- Main Content -->
-    <div class="container mx-auto mt-10 p-4">
+    <div class="container mx-auto mt-6 p-4">
         <!-- Quick Actions -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10">
             <a href="files.html" class="bg-blue-500 text-white p-6 rounded-lg shadow hover:bg-blue-600 text-center">
@@ -56,7 +80,9 @@
     </div>
 
     <script>
-        // Check if user is logged in
+        let userData = null;
+
+        // Initialize page
         window.onload = async () => {
             const userInfo = localStorage.getItem('userInfo');
             if (!userInfo) {
@@ -64,9 +90,163 @@
                 return;
             }
             
-            const user = JSON.parse(userInfo);
-            document.getElementById('username').textContent = user.username;
+            userData = JSON.parse(userInfo);
+            document.getElementById('username').textContent = userData.username;
+            await loadRecentActivity();
+
+            // Add search on enter key
+            document.getElementById('searchInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    performSearch();
+                }
+            });
         };
+
+        // Load recent activity
+        async function loadRecentActivity() {
+            try {
+                // Get recent items from all sources
+                const [files, notes] = await Promise.all([
+                    window.api.getFiles(userData.userId),
+                    window.api.getNotes(userData.userId)
+                ]);
+
+                // Combine and sort all items by date
+                const allItems = [
+                    ...files.map(file => ({
+                        type: 'file',
+                        title: file.alias_name || file.file_name,
+                        date: new Date(file.created_at),
+                        data: file
+                    })),
+                    ...notes.map(note => ({
+                        type: 'note',
+                        title: note.title,
+                        date: new Date(note.created_at),
+                        data: note
+                    }))
+                ];
+
+                // Sort by date descending
+                allItems.sort((a, b) => b.date - a.date);
+
+                // Display recent items
+                displayRecentActivity(allItems.slice(0, 10)); // Show last 10 items
+            } catch (error) {
+                console.error('Error loading recent activity:', error);
+            }
+        }
+
+        // Display recent activity
+        function displayRecentActivity(items) {
+            const container = document.getElementById('recentActivity');
+            
+            if (items.length === 0) {
+                container.innerHTML = '<p class="text-gray-500">No recent activity</p>';
+                return;
+            }
+
+            container.innerHTML = items.map(item => {
+                const dateStr = item.date.toLocaleString();
+                let itemHtml = '';
+
+                switch (item.type) {
+                    case 'file':
+                        itemHtml = `
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded hover:bg-gray-100">
+                                <div>
+                                    <div class="flex items-center">
+                                        <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm mr-2">File</span>
+                                        <span class="font-medium">${item.title}</span>
+                                    </div>
+                                    <div class="text-sm text-gray-500">${dateStr}</div>
+                                </div>
+                                <a href="files.html" class="text-blue-500 hover:text-blue-700">View</a>
+                            </div>
+                        `;
+                        break;
+                    case 'note':
+                        itemHtml = `
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded hover:bg-gray-100">
+                                <div>
+                                    <div class="flex items-center">
+                                        <span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-sm mr-2">Note</span>
+                                        <span class="font-medium">${item.title}</span>
+                                    </div>
+                                    <div class="text-sm text-gray-500">${dateStr}</div>
+                                </div>
+                                <a href="notes.html" class="text-blue-500 hover:text-blue-700">View</a>
+                            </div>
+                        `;
+                        break;
+                }
+
+                return itemHtml;
+            }).join('');
+        }
+
+        // Perform search
+        async function performSearch() {
+            const searchTerm = document.getElementById('searchInput').value.trim();
+            if (!searchTerm) return;
+
+            try {
+                const results = await window.api.searchAll(userData.userId, searchTerm);
+                displaySearchResults(results);
+            } catch (error) {
+                console.error('Search error:', error);
+            }
+        }
+
+        // Display search results
+        function displaySearchResults(results) {
+            const container = document.getElementById('searchResultsContent');
+            const resultsSection = document.getElementById('searchResults');
+            resultsSection.classList.remove('hidden');
+
+            if (results.length === 0) {
+                container.innerHTML = '<p class="text-gray-500">No results found</p>';
+                return;
+            }
+
+            container.innerHTML = results.map(item => {
+                const dateStr = new Date(item.created_at).toLocaleString();
+                let itemHtml = '';
+
+                switch (item.type) {
+                    case 'file':
+                        itemHtml = `
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded hover:bg-gray-100">
+                                <div>
+                                    <div class="flex items-center">
+                                        <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm mr-2">File</span>
+                                        <span class="font-medium">${item.alias_name || item.file_name}</span>
+                                    </div>
+                                    <div class="text-sm text-gray-500">${dateStr}</div>
+                                </div>
+                                <a href="files.html" class="text-blue-500 hover:text-blue-700">View</a>
+                            </div>
+                        `;
+                        break;
+                    case 'note':
+                        itemHtml = `
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded hover:bg-gray-100">
+                                <div>
+                                    <div class="flex items-center">
+                                        <span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-sm mr-2">Note</span>
+                                        <span class="font-medium">${item.title}</span>
+                                    </div>
+                                    <div class="text-sm text-gray-500">${dateStr}</div>
+                                </div>
+                                <a href="notes.html" class="text-blue-500 hover:text-blue-700">View</a>
+                            </div>
+                        `;
+                        break;
+                }
+
+                return itemHtml;
+            }).join('');
+        }
 
         // Logout function
         function logout() {

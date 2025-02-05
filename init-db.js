@@ -78,21 +78,20 @@ function initializeTables() {
 
     // Create Notes table
     const createNotesTable = `
-        CREATE TABLE IF NOT EXISTS Notes (
-            note_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            title TEXT,
-            content TEXT NOT NULL,
-            is_todo BOOLEAN DEFAULT 0,
-            is_completed BOOLEAN DEFAULT 0,
-            due_date DATE,
-            priority INTEGER CHECK (priority IN (1, 2, 3)),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            last_modified TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES Users(user_id)
-        )
-    `;
-
+    CREATE TABLE IF NOT EXISTS Notes (
+        note_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        title TEXT,
+        content TEXT NOT NULL,
+        is_todo BOOLEAN DEFAULT 0,
+        is_completed BOOLEAN DEFAULT 0,
+        due_date DATE,
+        priority TEXT CHECK (priority IN ('low', 'medium', 'high')),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_modified TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES Users(user_id)
+    )
+`;
     // Execute all create table queries
     db.serialize(() => {
         db.run(createUsersTable, (err) => {

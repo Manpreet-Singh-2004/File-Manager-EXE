@@ -121,44 +121,49 @@
 
         // Create file element
         function createFileElement(file) {
-            const div = document.createElement('div');
-            div.className = 'flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100';
-            
-            const displayName = file.alias_name || file.file_name;
-            const fileDate = new Date(file.created_at).toLocaleDateString();
-            
-            div.innerHTML = `
-                <div class="flex-grow">
-                    <h3 class="font-medium">${displayName}</h3>
-                    <p class="text-sm text-gray-500">
-                        ${formatFileSize(file.file_size)} • ${fileDate}
-                    </p>
-                </div>
-                <div class="flex space-x-2">
-                    <button onclick="downloadFile('${file.file_path}', '${file.file_name}')" 
-                            class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">
-                        Download
-                    </button>
-                    <button onclick="handleDelete(${file.file_id})" 
-                            class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600">
-                        Delete
-                    </button>
-                </div>
-            `;
-            
-            return div;
-        }
+    const div = document.createElement('div');
+    div.className = 'flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100';
+    
+    const displayName = file.alias_name || file.file_name;
+    const fileDate = new Date(file.created_at).toLocaleDateString();
+    
+    div.innerHTML = `
+        <div class="flex-grow">
+            <h3 class="font-medium">${displayName}</h3>
+            <p class="text-sm text-gray-500">
+                ${formatFileSize(file.file_size)} • ${fileDate}
+            </p>
+        </div>
+        <div class="flex space-x-2">
+            <button onclick="downloadFile(${file.file_id})" 
+                    class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">
+                Download
+            </button>
+            <button onclick="handleDelete(${file.file_id})" 
+                    class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600">
+                Delete
+            </button>
+        </div>
+    `;
+    
+    return div;
+}
+
 
         // Handle file download
-        async function downloadFile(filePath, fileName) {
-            try {
-                await window.api.downloadFile(filePath, fileName);
-                showSuccess('File downloaded successfully');
-            } catch (error) {
-                console.error('Download error:', error);
-                showError('Failed to download file');
-            }
+        async function downloadFile(fileId) {
+    try {
+        const result = await window.api.downloadFile(fileId, userData.userId);
+        if (result.success) {
+            showSuccess(`File '${result.fileName}' downloaded successfully to your Downloads folder`);
+        } else {
+            showError('Failed to download file');
         }
+    } catch (error) {
+        console.error('Download error:', error);
+        showError(error.message || 'Failed to download file');
+    }
+}
 
         // Handle file deletion
         async function handleDelete(fileId) {
