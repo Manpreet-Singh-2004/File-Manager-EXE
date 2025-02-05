@@ -1,0 +1,44 @@
+{
+  "name": "file-manager",
+  "version": "1.0.0",
+  "description": "File Manager Application",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "drop-db": "node drop-tables.js",
+    "init-db": "node init-db.js",
+    "create-admin": "node create-admin.js",
+    "reset-db": "npm run drop-db && npm run init-db && npm run create-admin",
+    "generate-icons": "electron-icon-builder --input=./icon.png --output=./build --flatten",
+    "build": "npm run generate-icons && electron-builder build --win",
+    "pack": "electron-builder --dir"
+  },
+  "build": {
+    "appId": "com.filemanager.app",
+    "productName": "File Manager",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "win": {
+      "target": ["nsis"],
+      "icon": "build/icons/win/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "electron-icon-builder": "^2.0.1"
+  }
+}

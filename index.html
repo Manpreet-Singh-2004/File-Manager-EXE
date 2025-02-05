@@ -3,9 +3,189 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Login - File Manager</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <style>
+        .error-message {
+            color: red;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+    </style>
 </head>
-<body>
-    <h1>This is the test app</h1>
+<body class="bg-gray-100">
+    <div class="min-h-screen flex items-center justify-center">
+        <div class="max-w-md w-full">
+            <!-- Login Form -->
+            <div id="loginContainer" class="bg-white rounded-lg shadow-md p-8 mb-4">
+                <h2 class="text-2xl font-bold text-center mb-6">Login</h2>
+                <form id="loginForm" class="space-y-4">
+                    <div>
+                        <label for="loginUsername" class="block text-gray-700 mb-1">Username</label>
+                        <input type="text" 
+                               id="loginUsername" 
+                               class="w-full p-2 border rounded focus:outline-none focus:border-blue-500" 
+                               required>
+                    </div>
+                    <div>
+                        <label for="loginPassword" class="block text-gray-700 mb-1">Password</label>
+                        <input type="password" 
+                               id="loginPassword" 
+                               class="w-full p-2 border rounded focus:outline-none focus:border-blue-500" 
+                               required>
+                    </div>
+                    <div id="loginError" class="error-message hidden"></div>
+                    <button type="submit" 
+                            class="w-full bg-blue-500 text-white p-3 rounded hover:bg-blue-600 transition-colors">
+                        Login
+                    </button>
+                </form>
+                <p class="mt-4 text-center text-gray-600">
+                    Don't have an account? 
+                    <a href="#" onclick="toggleForms(event)" class="text-blue-500 hover:text-blue-700">Register</a>
+                </p>
+            </div>
+
+            <!-- Registration Form -->
+            <div id="registerContainer" class="bg-white rounded-lg shadow-md p-8 mb-4 hidden">
+                <h2 class="text-2xl font-bold text-center mb-6">Register</h2>
+                <form id="registerForm" class="space-y-4">
+                    <div>
+                        <label for="regUsername" class="block text-gray-700 mb-1">Username</label>
+                        <input type="text" 
+                               id="regUsername" 
+                               class="w-full p-2 border rounded focus:outline-none focus:border-blue-500" 
+                               required>
+                    </div>
+                    <div>
+                        <label for="regPassword" class="block text-gray-700 mb-1">Password</label>
+                        <input type="password" 
+                               id="regPassword" 
+                               class="w-full p-2 border rounded focus:outline-none focus:border-blue-500" 
+                               required>
+                    </div>
+                    <div>
+                        <label for="regEmail" class="block text-gray-700 mb-1">Email (Optional)</label>
+                        <input type="email" 
+                               id="regEmail" 
+                               class="w-full p-2 border rounded focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div id="registerError" class="error-message hidden"></div>
+                    <button type="submit" 
+                            class="w-full bg-green-500 text-white p-3 rounded hover:bg-green-600 transition-colors">
+                        Register
+                    </button>
+                </form>
+                <p class="mt-4 text-center text-gray-600">
+                    Already have an account? 
+                    <a href="#" onclick="toggleForms(event)" class="text-blue-500 hover:text-blue-700">Login</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+
+window.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM loaded');
+    
+    // Test API connection
+    if (window.api) {
+        try {
+            const result = window.api.testConnection();
+            console.log('API test result:', result);
+        } catch (error) {
+            console.error('API test failed:', error);
+        }
+    } else {
+        console.error('API not found');
+    }
+});
+
+
+window.onload = () => {
+        if (!window.api) {
+            console.error('API not found! Application may not work correctly.');
+            showError('login', 'Application initialization error. Please restart the application.');
+            return;
+        }
+        console.log('Application initialized successfully');
+    };
+
+    // Form handling functions
+    function toggleForms(event) {
+        event.preventDefault();
+        const loginContainer = document.getElementById('loginContainer');
+        const registerContainer = document.getElementById('registerContainer');
+        loginContainer.classList.toggle('hidden');
+        registerContainer.classList.toggle('hidden');
+        
+        // Clear any error messages
+        document.getElementById('loginError').classList.add('hidden');
+        document.getElementById('registerError').classList.add('hidden');
+        
+        // Reset forms
+        document.getElementById('loginForm').reset();
+        document.getElementById('registerForm').reset();
+    }
+
+    function showError(formType, message) {
+        console.error(`${formType} error:`, message);
+        const errorDiv = document.getElementById(formType + 'Error');
+        errorDiv.textContent = message;
+        errorDiv.classList.remove('hidden');
+    }
+
+    // Login form submission
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        console.log('Login attempt started');
+        const username = document.getElementById('loginUsername').value;
+        const password = document.getElementById('loginPassword').value;
+
+        try {
+            console.log('Calling loginUser API');
+            const result = await window.api.loginUser({ username, password });
+            console.log('Login successful:', result);
+            localStorage.setItem('userInfo', JSON.stringify(result));
+            window.location.href = 'home.html';
+        } catch (error) {
+            console.error('Login error:', error);
+            showError('login', error.message || 'Login failed');
+        }
+    });
+
+    // Registration form submission
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        console.log('Registration attempt started');
+        const username = document.getElementById('regUsername').value;
+        const password = document.getElementById('regPassword').value;
+        const email = document.getElementById('regEmail').value;
+
+        try {
+            console.log('Calling registerUser API');
+            const result = await window.api.registerUser({ username, password, email });
+            console.log('Registration successful:', result);
+            alert('Registration successful! Please login.');
+            toggleForms(e);
+        } catch (error) {
+            console.error('Registration error:', error);
+            showError('register', error.message || 'Registration failed');
+        }
+    });
+
+    // Clear errors when input changes
+    const inputs = document.querySelectorAll('input');
+    inputs.forEach(input => {
+        input.addEventListener('input', () => {
+            const form = input.closest('form');
+            const errorDiv = form.querySelector('.error-message');
+            if (errorDiv) {
+                errorDiv.classList.add('hidden');
+            }
+        });
+    });
+    </script>
 </body>
 </html>

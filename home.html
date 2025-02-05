@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home - File Manager</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100">
+    <!-- Navigation -->
+    <nav class="bg-gray-800 text-white p-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold">File Manager</h1>
+            <div class="flex space-x-6">
+                <a href="files.html" class="hover:text-gray-300">Files</a>
+                <a href="finances.html" class="hover:text-gray-300">Finances</a>
+                <a href="calendar.html" class="hover:text-gray-300">Calendar</a>
+                <a href="notes.html" class="hover:text-gray-300">Notes</a>
+            </div>
+            <div class="flex items-center">
+                <span id="username" class="mr-4"></span>
+                <button onclick="logout()" class="bg-red-500 px-4 py-2 rounded hover:bg-red-600">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container mx-auto mt-10 p-4">
+        <!-- Quick Actions -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10">
+            <a href="files.html" class="bg-blue-500 text-white p-6 rounded-lg shadow hover:bg-blue-600 text-center">
+                <h3 class="text-xl font-bold mb-2">Files</h3>
+                <p>Manage your files and documents</p>
+            </a>
+            <a href="finances.html" class="bg-green-500 text-white p-6 rounded-lg shadow hover:bg-green-600 text-center">
+                <h3 class="text-xl font-bold mb-2">Finances</h3>
+                <p>Track income and expenses</p>
+            </a>
+            <a href="calendar.html" class="bg-purple-500 text-white p-6 rounded-lg shadow hover:bg-purple-600 text-center">
+                <h3 class="text-xl font-bold mb-2">Calendar</h3>
+                <p>Manage events and schedules</p>
+            </a>
+            <a href="notes.html" class="bg-yellow-500 text-white p-6 rounded-lg shadow hover:bg-yellow-600 text-center">
+                <h3 class="text-xl font-bold mb-2">Notes</h3>
+                <p>Create and manage notes</p>
+            </a>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-2xl font-bold mb-4">Recent Activity</h2>
+            <div id="recentActivity" class="space-y-4">
+                <!-- Activity items will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Check if user is logged in
+        window.onload = async () => {
+            const userInfo = localStorage.getItem('userInfo');
+            if (!userInfo) {
+                window.location.href = 'index.html';
+                return;
+            }
+            
+            const user = JSON.parse(userInfo);
+            document.getElementById('username').textContent = user.username;
+        };
+
+        // Logout function
+        function logout() {
+            localStorage.removeItem('userInfo');
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>

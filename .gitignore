@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Uploads folder
+uploads/
+
+# Distribution folder
+dist/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+
+# Electron build
+release/
+build/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
