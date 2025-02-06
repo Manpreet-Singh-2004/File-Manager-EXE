@@ -536,6 +536,146 @@ contextBridge.exposeInMainWorld(
                 resolve({ success: true });
             });
         });
+    },
+
+    // Calendar
+    getEvents: async (userId) => {
+        return new Promise((resolve, reject) => {
+            const query = `
+                SELECT * FROM Events 
+                WHERE user_id = ? 
+                ORDER BY start_date, start_time
+            `;
+            
+            db.all(query, [userId], (err, rows) => {
+                if (err) {
+                    console.error('Error fetching events:', err);
+                    reject(new Error('Failed to fetch events'));
+                    return;
+                }
+                resolve(rows);
+            });
+        });
+    },
+    
+    // Create event
+    createEvent: async (eventData) => {
+        return new Promise((resolve, reject) => {
+            const query = `
+                INSERT INTO Events (
+                    user_id, event_name, event_description, start_date, 
+                    start_time, end_date, end_time, alarm_date, 
+                    alarm_time, is_recurring, recurrence_pattern, 
+                    notification_sent, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+            `;
+            
+            const params = [
+                eventData.userId,
+                eventData.eventName,
+                eventData.eventDescription,
+                eventData.startDate,
+                eventData.startTime,
+                eventData.endDate,
+                eventData.endTime,
+                eventData.alarmDate,
+                eventData.alarmTime,
+                eventData.isRecurring ? 1 : 0,
+                eventData.recurrencePattern,
+                eventData.notificationSent ? 1 : 0
+            ];
+    
+            db.run(query, params, function(err) {
+                if (err) {
+                    console.error('Error creating event:', err);
+                    reject(new Error('Failed to create event'));
+                    return;
+                }
+                
+                resolve({
+                    eventId: this.lastID,
+                    ...eventData
+                });
+            });
+        });
+    },
+    
+    // Update event
+    updateEvent: async (eventData) => {
+        return new Promise((resolve, reject) => {
+            const query = `
+                UPDATE Events 
+                SET 
+                    event_name = ?,
+                    event_description = ?,
+                    start_date = ?,
+                    start_time = ?,
+                    end_date = ?,
+                    end_time = ?,
+                    alarm_date = ?,
+                    alarm_time = ?,
+                    is_recurring = ?,
+                    recurrence_pattern = ?,
+                    notification_sent = ?
+                WHERE event_id = ? AND user_id = ?
+            `;
+            
+            const params = [
+                eventData.eventName,
+                eventData.eventDescription,
+                eventData.startDate,
+                eventData.startTime,
+                eventData.endDate,
+                eventData.endTime,
+                eventData.alarmDate,
+                eventData.alarmTime,
+                eventData.isRecurring ? 1 : 0,
+                eventData.recurrencePattern,
+                eventData.notificationSent ? 1 : 0,
+                eventData.eventId,
+                eventData.userId
+            ];
+    
+            db.run(query, params, function(err) {
+                if (err) {
+                    console.error('Error updating event:', err);
+                    reject(new Error('Failed to update event'));
+                    return;
+                }
+    
+                if (this.changes === 0) {
+                    reject(new Error('Event not found or unauthorized'));
+                    return;
+                }
+                
+                resolve({
+                    ...eventData,
+                    updated: true
+                });
+            });
+        });
+    },
+    
+    // Delete event
+    deleteEvent: async (eventId, userId) => {
+        return new Promise((resolve, reject) => {
+            const query = 'DELETE FROM Events WHERE event_id = ? AND user_id = ?';
+            
+            db.run(query, [eventId, userId], function(err) {
+                if (err) {
+                    console.error('Error deleting event:', err);
+                    reject(new Error('Failed to delete event'));
+                    return;
+                }
+    
+                if (this.changes === 0) {
+                    reject(new Error('Event not found or unauthorized'));
+                    return;
+                }
+                
+                resolve({ success: true });
+            });
+        });
     }
 }
 );

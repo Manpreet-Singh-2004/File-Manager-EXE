@@ -10,7 +10,7 @@
     "create-admin": "node create-admin.js",
     "reset-db": "npm run drop-db && npm run init-db && npm run create-admin",
     "generate-icons": "electron-icon-builder --input=./icon.png --output=./build --flatten",
-    "build": "npm run generate-icons && electron-builder build --win",
+    "build": "electron-packager . File-Manager --platform=win32 --arch=x64 --out=dist --overwrite",
     "pack": "electron-builder --dir"
   },
   "build": {

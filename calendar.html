@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendar - File Manager</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <style>
+        .calendar-day {
+            aspect-ratio: 1;
+            min-height: 100px;
+        }
+        
+        .calendar-day:hover {
+            background-color: rgba(59, 130, 246, 0.1);
+        }
+
+        .calendar-day.selected {
+            background-color: rgba(59, 130, 246, 0.2);
+            border: 2px solid #3b82f6;
+        }
+
+        .event-chip {
+            max-width: 95%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            margin: 2px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100">
+    <!-- Navigation -->
+    <nav class="bg-gray-800 text-white p-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <a href="home.html" class="text-xl font-bold">File Manager</a>
+            <div class="flex space-x-6">
+                <a href="files.html" class="hover:text-gray-300">Files</a>
+                <a href="finances.html" class="hover:text-gray-300">Finances</a>
+                <a href="calendar.html" class="hover:text-gray-300">Calendar</a>
+                <a href="notes.html" class="hover:text-gray-300">Notes</a>
+            </div>
+            <div class="flex items-center">
+                <span id="username" class="mr-4"></span>
+                <button onclick="logout()" class="bg-red-500 px-4 py-2 rounded hover:bg-red-600">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Calendar Header -->
+    <div class="container mx-auto mt-8 p-4">
+        <div class="flex justify-between items-center mb-6">
+            <div class="flex items-center space-x-4">
+                <button onclick="goToToday()" class="bg-gray-700 px-4 py-2 rounded hover:bg-gray-600">
+                    Today
+                </button>
+                <button onclick="changeMonth(-1)" class="text-2xl hover:text-blue-400">‹</button>
+                <button onclick="changeMonth(1)" class="text-2xl hover:text-blue-400">›</button>
+                <h2 id="currentMonth" class="text-2xl font-bold"></h2>
+            </div>
+            <button onclick="showEventDialog()" class="bg-blue-500 px-4 py-2 rounded hover:bg-blue-600">
+                Add Event
+            </button>
+        </div>
+
+        <!-- Calendar Grid -->
+        <div class="grid grid-cols-7 gap-px bg-gray-700">
+            <!-- Week days header -->
+            <div class="p-2 text-center font-semibold bg-gray-800">Sunday</div>
+            <div class="p-2 text-center font-semibold bg-gray-800">Monday</div>
+            <div class="p-2 text-center font-semibold bg-gray-800">Tuesday</div>
+            <div class="p-2 text-center font-semibold bg-gray-800">Wednesday</div>
+            <div class="p-2 text-center font-semibold bg-gray-800">Thursday</div>
+            <div class="p-2 text-center font-semibold bg-gray-800">Friday</div>
+            <div class="p-2 text-center font-semibold bg-gray-800">Saturday</div>
+
+            <!-- Calendar days will be inserted here -->
+            <div id="calendarDays"></div>
+        </div>
+    </div>
+
+    <!-- Event Dialog -->
+    <div id="eventDialog" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center">
+        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold" id="dialogTitle">New Event</h3>
+                <button onclick="hideEventDialog()" class="text-gray-400 hover:text-gray-200">&times;</button>
+            </div>
+            <form id="eventForm" class="space-y-4">
+                <input type="hidden" id="eventId">
+                <div>
+                    <label class="block text-gray-300 mb-1">Event Name</label>
+                    <input type="text" id="eventName" class="w-full p-2 rounded bg-gray-700 text-white border border-gray-600" required>
+                </div>
+                <div>
+                    <label class="block text-gray-300 mb-1">Description</label>
+                    <textarea id="eventDescription" class="w-full p-2 rounded bg-gray-700 text-white border border-gray-600" rows="3"></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-gray-300 mb-1">Start Date</label>
+                        <input type="date" id="startDate" class="w-full p-2 rounded bg-gray-700 text-white border border-gray-600" required>
+                    </div>
+                    <div>
+                        <label class="block text-gray-300 mb-1">Start Time</label>
+                        <input type="time" id="startTime" class="w-full p-2 rounded bg-gray-700 text-white border border-gray-600">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-gray-300 mb-1">End Date</label>
+                        <input type="date" id="endDate" class="w-full p-2 rounded bg-gray-700 text-white border border-gray-600">
+                    </div>
+                    <div>
+                        <label class="block text-gray-300 mb-1">End Time</label>
+                        <input type="time" id="endTime" class="w-full p-2 rounded bg-gray-700 text-white border border-gray-600">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-gray-300 mb-1">Set Alarm</label>
+                    <div class="grid grid-cols-2 gap-4">
+                        <input type="date" id="alarmDate" class="w-full p-2 rounded bg-gray-700 text-white border border-gray-600">
+                        <input type="time" id="alarmTime" class="w-full p-2 rounded bg-gray-700 text-white border border-gray-600">
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <input type="checkbox" id="isRecurring" class="rounded bg-gray-700 border-gray-600">
+                    <label for="isRecurring" class="text-gray-300">Recurring Event</label>
+                </div>
+                <div id="recurrenceOptions" class="hidden">
+                    <label class="block text-gray-300 mb-1">Recurrence Pattern</label>
+                    <select id="recurrencePattern" class="w-full p-2 rounded bg-gray-700 text-white border border-gray-600">
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                        <option value="yearly">Yearly</option>
+                    </select>
+                </div>
+                <div class="flex justify-end space-x-2 mt-4">
+                    <button type="button" onclick="hideEventDialog()" 
+                            class="px-4 py-2 border border-gray-600 rounded hover:bg-gray-700">Cancel</button>
+                    <button type="submit" 
+                            class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let userData = null;
+        let currentDate = new Date();
+        let selectedDate = null;
+        let currentEvents = [];
+
+        // Initialize page
+        window.onload = async () => {
+            const userInfo = localStorage.getItem('userInfo');
+            if (!userInfo) {
+                window.location.href = 'index.html';
+                return;
+            }
+            userData = JSON.parse(userInfo);
+            document.getElementById('username').textContent = userData.username;
+
+            // Setup recurring event checkbox handler
+            document.getElementById('isRecurring').addEventListener('change', function() {
+                document.getElementById('recurrenceOptions').style.display = 
+                    this.checked ? 'block' : 'none';
+            });
+
+            await loadEvents();
+            renderCalendar();
+        };
+
+        // Load events
+        async function loadEvents() {
+            try {
+                const events = await window.api.getEvents(userData.userId);
+                currentEvents = events;
+                renderCalendar(); // Re-render to show events
+            } catch (error) {
+                console.error('Error loading events:', error);
+            }
+        }
+
+        // Render calendar
+        function renderCalendar() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            
+            // Set current month/year in header
+            document.getElementById('currentMonth').textContent = 
+                new Date(year, month).toLocaleString('default', { month: 'long', year: 'numeric' });
+
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const daysInMonth = lastDay.getDate();
+            const startingDay = firstDay.getDay();
+
+            const calendarDays = document.getElementById('calendarDays');
+            calendarDays.innerHTML = '';
+
+            // Previous month days
+            const prevMonthDays = startingDay;
+            const prevMonth = new Date(year, month, 0);
+            for (let i = prevMonthDays - 1; i >= 0; i--) {
+                const dayDiv = createDayCell(
+                    prevMonth.getDate() - i,
+                    `text-gray-600 bg-gray-800`,
+                    new Date(year, month - 1, prevMonth.getDate() - i)
+                );
+                calendarDays.appendChild(dayDiv);
+            }
+
+            // Current month days
+            for (let day = 1; day <= daysInMonth; day++) {
+                const date = new Date(year, month, day);
+                const isToday = isDateToday(date);
+                const isSelected = isDateSelected(date);
+                
+                let className = 'bg-gray-800';
+                if (isToday) className += ' border-2 border-blue-500';
+                if (isSelected) className += ' selected';
+
+                const dayDiv = createDayCell(day, className, date);
+                calendarDays.appendChild(dayDiv);
+            }
+
+            // Next month days
+            const totalCells = 42; // 6 rows × 7 days
+            const remainingCells = totalCells - (prevMonthDays + daysInMonth);
+            for (let day = 1; day <= remainingCells; day++) {
+                const dayDiv = createDayCell(
+                    day,
+                    'text-gray-600 bg-gray-800',
+                    new Date(year, month + 1, day)
+                );
+                calendarDays.appendChild(dayDiv);
+            }
+        }
+
+        // Create a day cell
+        function createDayCell(day, className, date) {
+            const div = document.createElement('div');
+            div.className = `calendar-day ${className} p-2 relative`;
+            div.innerHTML = `<span class="absolute top-1 left-2">${day}</span>`;
+            
+            // Add click handler
+            div.addEventListener('click', () => selectDate(date));
+
+            // Add events for this day
+            const dayEvents = currentEvents.filter(event => {
+                const eventDate = new Date(event.start_date);
+                return eventDate.toDateString() === date.toDateString();
+            });
+
+            if (dayEvents.length > 0) {
+                const eventsContainer = document.createElement('div');
+                eventsContainer.className = 'mt-6 space-y-1';
+                dayEvents.forEach(event => {
+                    const eventDiv = document.createElement('div');
+                    eventDiv.className = 'event-chip bg-blue-500 text-white';
+                    eventDiv.textContent = event.event_name;
+                    eventDiv.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        editEvent(event);
+                    });
+                    eventsContainer.appendChild(eventDiv);
+                });
+                div.appendChild(eventsContainer);
+            }
+
+            return div;
+        }
+
+        // Navigation functions
+        function goToToday() {
+            currentDate = new Date();
+            renderCalendar();
+        }
+
+        function changeMonth(delta) {
+            currentDate.setMonth(currentDate.getMonth() + delta);
+            renderCalendar();
+        }
+
+        // Date selection
+        function selectDate(date) {
+            selectedDate = date;
+            document.querySelectorAll('.calendar-day').forEach(day => {
+                day.classList.remove('selected');
+            });
+            renderCalendar();
+            showEventDialog(date);
+        }
+
+        // Helper functions
+        function isDateToday(date) {
+            const today = new Date();
+            return date.toDateString() === today.toDateString();
+        }
+
+        function isDateSelected(date) {
+            return selectedDate && date.toDateString() === selectedDate.toDateString();
+        }
+
+        // Event dialog functions
+        function showEventDialog(date = null) {
+            const dialog = document.getElementById('eventDialog');
+            const form = document.getElementById('eventForm');
+            
+            // Reset form
+            form.reset();
+            document.getElementById('eventId').value = '';
+            document.getElementById('recurrenceOptions').style.display = 'none';
+
+            // Set default dates
+            if (date) {
+                const dateStr = date.toISOString().split('T')[0];
+                document.getElementById('startDate').value = dateStr;
+                document.getElementById('endDate').value = dateStr;
+            }
+
+            dialog.classList.remove('hidden');
+        }
+
+        function hideEventDialog() {
+            document.getElementById('eventDialog').classList.add('hidden');
+            document.getElementById('eventForm').reset();
+        }
+
+        // Edit event
+        function editEvent(event) {
+    const dialog = document.getElementById('eventDialog');
+    document.getElementById('dialogTitle').textContent = 'Edit Event';
+    document.getElementById('eventId').value = event.event_id;
+    document.getElementById('eventName').value = event.event_name;
+    document.getElementById('eventDescription').value = event.event_description || '';
+    
+    // Set dates and times
+    if (event.start_date) {
+        const startDate = new Date(event.start_date);
+        document.getElementById('startDate').value = startDate.toISOString().split('T')[0];
+    }
+    if (event.start_time) {
+        document.getElementById('startTime').value = event.start_time;
+    }
+    if (event.end_date) {
+        const endDate = new Date(event.end_date);
+        document.getElementById('endDate').value = endDate.toISOString().split('T')[0];
+    }
+    if (event.end_time) {
+        document.getElementById('endTime').value = event.end_time;
+    }
+    if (event.alarm_date) {
+        const alarmDate = new Date(event.alarm_date);
+        document.getElementById('alarmDate').value = alarmDate.toISOString().split('T')[0];
+    }
+    if (event.alarm_time) {
+        document.getElementById('alarmTime').value = event.alarm_time;
+    }
+
+    // Set recurring options
+    const isRecurring = document.getElementById('isRecurring');
+    isRecurring.checked = event.is_recurring;
+    document.getElementById('recurrenceOptions').style.display = event.is_recurring ? 'block' : 'none';
+    if (event.recurrence_pattern) {
+        document.getElementById('recurrencePattern').value = event.recurrence_pattern;
+    }
+
+    dialog.classList.remove('hidden');
+}
+
+// Handle form submission
+document.getElementById('eventForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const eventData = {
+        eventId: document.getElementById('eventId').value,
+        userId: userData.userId,
+        eventName: document.getElementById('eventName').value,
+        eventDescription: document.getElementById('eventDescription').value,
+        startDate: document.getElementById('startDate').value,
+        startTime: document.getElementById('startTime').value,
+        endDate: document.getElementById('endDate').value,
+        endTime: document.getElementById('endTime').value,
+        alarmDate: document.getElementById('alarmDate').value,
+        alarmTime: document.getElementById('alarmTime').value,
+        isRecurring: document.getElementById('isRecurring').checked,
+        recurrencePattern: document.getElementById('isRecurring').checked ? 
+            document.getElementById('recurrencePattern').value : null,
+        notificationSent: false
+    };
+
+    try {
+        if (eventData.eventId) {
+            // Update existing event
+            await window.api.updateEvent(eventData);
+            showSuccess('Event updated successfully');
+        } else {
+            // Create new event
+            await window.api.createEvent(eventData);
+            showSuccess('Event created successfully');
+        }
+        
+        hideEventDialog();
+        await loadEvents();
+    } catch (error) {
+        console.error('Error saving event:', error);
+        showError(error.message || 'Failed to save event');
+    }
+});
+
+// Delete event
+async function deleteEvent(eventId) {
+    if (!confirm('Are you sure you want to delete this event?')) {
+        return;
+    }
+
+    try {
+        await window.api.deleteEvent(eventId, userData.userId);
+        await loadEvents();
+        showSuccess('Event deleted successfully');
+    } catch (error) {
+        console.error('Error deleting event:', error);
+        showError('Failed to delete event');
+    }
+}
+
+// Alert functions
+function showError(message) {
+    // You can implement your preferred way of showing errors
+    alert(message);
+}
+
+function showSuccess(message) {
+    // You can implement your preferred way of showing success messages
+    alert(message);
+}
+
+// Logout function
+function logout() {
+    localStorage.removeItem('userInfo');
+    window.location.href = 'index.html';
+}
+</script>
+</body>
+</html>

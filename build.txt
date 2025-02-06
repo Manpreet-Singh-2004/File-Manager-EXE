@@ -1,0 +1,6 @@
+For installing and other setup use the command -:
+npx electron-builder build --win --x64  
+Open in terminal (Adminstrator)
+
+To make the runnable one use this command
+electron-packager . Task Manager --platform=win32 --arch=x64 --out=dist --overwrite

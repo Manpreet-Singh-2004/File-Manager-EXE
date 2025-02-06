@@ -57,24 +57,24 @@ function initializeTables() {
 
     // Create Events table
     const createEventsTable = `
-        CREATE TABLE IF NOT EXISTS Events (
-            event_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            event_name TEXT NOT NULL,
-            event_description TEXT,
-            start_date DATE NOT NULL,
-            start_time TIME,
-            end_date DATE,
-            end_time TIME,
-            alarm_date DATE,
-            alarm_time TIME,
-            is_recurring BOOLEAN DEFAULT 0,
-            recurrence_pattern TEXT,
-            notification_sent BOOLEAN DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES Users(user_id)
-        )
-    `;
+    CREATE TABLE IF NOT EXISTS Events (
+        event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        event_name TEXT NOT NULL,
+        event_description TEXT,
+        start_date DATE NOT NULL,
+        start_time TIME,
+        end_date DATE,
+        end_time TIME,
+        alarm_date DATE,
+        alarm_time TIME,
+        is_recurring BOOLEAN DEFAULT 0,
+        recurrence_pattern TEXT CHECK(recurrence_pattern IN ('daily', 'weekly', 'monthly', 'yearly')),
+        notification_sent BOOLEAN DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES Users(user_id)
+    )
+`;
 
     // Create Notes table
     const createNotesTable = `
