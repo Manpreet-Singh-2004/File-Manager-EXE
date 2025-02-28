@@ -7,6 +7,7 @@ function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1200,
         height: 800,
+        icon: path.join(__dirname, 'icon.ico'), // Icon path
         webPreferences: {
             contextIsolation: true,
             nodeIntegration: false,
@@ -16,10 +17,10 @@ function createWindow() {
         }
     });
 
-        // Open DevTools for debugging
-        mainWindow.webContents.openDevTools();
-
+    // Load the index.html file
     mainWindow.loadFile('index.html');
+    
+    // Uncomment for debugging
     // mainWindow.webContents.openDevTools();
 
     // Handle window state changes
@@ -75,4 +76,5 @@ app.on('window-all-closed', () => {
 
 // Handle before quit
 app.on('before-quit', () => {
-    console.log('App quitting');});
+    console.log('App quitting');
+});

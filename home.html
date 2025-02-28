@@ -5,15 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Home - File Manager</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <style>
+        /* Fix for input focus issues */
+        input, textarea, select, button {
+            outline: none !important;
+        }
+        
+        .activity-item {
+            transition: all 0.2s ease;
+        }
+        
+        .activity-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Fix for modals */
+        .modal {
+            transition: opacity 0.2s ease;
+        }
+    </style>
 </head>
 <body class="bg-gray-100">
     <!-- Navigation -->
     <nav class="bg-gray-800 text-white p-4">
         <div class="container mx-auto flex justify-between items-center">
-            <h1 class="text-xl font-bold">File Manager</h1>
+            <a href="home.html" class="text-xl font-bold">File Manager</a>
             <div class="flex space-x-6">
                 <a href="files.html" class="hover:text-gray-300">Files</a>
-                <a href="finances.html" class="hover:text-gray-300">Finances</a>
                 <a href="calendar.html" class="hover:text-gray-300">Calendar</a>
                 <a href="notes.html" class="hover:text-gray-300">Notes</a>
             </div>
@@ -30,7 +49,8 @@
             <input type="text" 
                    id="searchInput" 
                    class="w-full p-4 pr-12 rounded-lg shadow-lg border focus:outline-none focus:ring-2 focus:ring-blue-500"
-                   placeholder="Search files, notes, events...">
+                   placeholder="Search files, notes, events, transactions..."
+                   tabindex="0">
             <button onclick="performSearch()" 
                     class="absolute right-4 top-1/2 transform -translate-y-1/2 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
                 Search
@@ -41,7 +61,10 @@
     <!-- Search Results (Hidden by default) -->
     <div id="searchResults" class="container mx-auto mt-6 px-4 hidden">
         <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-2xl font-bold mb-4">Search Results</h2>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold">Search Results</h2>
+                <span id="resultsCount" class="bg-blue-100 text-blue-800 px-2 py-1 rounded"></span>
+            </div>
             <div id="searchResultsContent" class="space-y-4">
                 <!-- Search results will be displayed here -->
             </div>
@@ -55,10 +78,6 @@
             <a href="files.html" class="bg-blue-500 text-white p-6 rounded-lg shadow hover:bg-blue-600 text-center">
                 <h3 class="text-xl font-bold mb-2">Files</h3>
                 <p>Manage your files and documents</p>
-            </a>
-            <a href="finances.html" class="bg-green-500 text-white p-6 rounded-lg shadow hover:bg-green-600 text-center">
-                <h3 class="text-xl font-bold mb-2">Finances</h3>
-                <p>Track income and expenses</p>
             </a>
             <a href="calendar.html" class="bg-purple-500 text-white p-6 rounded-lg shadow hover:bg-purple-600 text-center">
                 <h3 class="text-xl font-bold mb-2">Calendar</h3>
@@ -74,127 +93,162 @@
         <div class="bg-white rounded-lg shadow p-6">
             <h2 class="text-2xl font-bold mb-4">Recent Activity</h2>
             <div id="recentActivity" class="space-y-4">
+                <div class="text-center py-4">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                    <p class="mt-2 text-gray-500">Loading recent activities...</p>
+                </div>
                 <!-- Activity items will be loaded here -->
             </div>
         </div>
     </div>
 
+    <!-- Error Alert -->
+    <div id="errorAlert" class="fixed bottom-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 hidden">
+        <span id="errorMessage"></span>
+        <button onclick="hideError()" class="ml-4">&times;</button>
+    </div>
+
     <script>
         let userData = null;
 
-        // Initialize page
-        window.onload = async () => {
-            const userInfo = localStorage.getItem('userInfo');
-            if (!userInfo) {
-                window.location.href = 'index.html';
-                return;
-            }
-            
-            userData = JSON.parse(userInfo);
-            document.getElementById('username').textContent = userData.username;
-            await loadRecentActivity();
-
-            // Add search on enter key
-            document.getElementById('searchInput').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    performSearch();
-                }
-            });
+        // Initialize page with a delay to ensure everything is interactive
+        window.onload = () => {
+            setTimeout(() => {
+                initializePage();
+            }, 100);
         };
+        
+        // Initialize the page
+        async function initializePage() {
+            try {
+                const userInfo = localStorage.getItem('userInfo');
+                if (!userInfo) {
+                    window.location.href = 'index.html';
+                    return;
+                }
+                
+                userData = JSON.parse(userInfo);
+                document.getElementById('username').textContent = userData.username;
+                
+                // Add search on enter key
+                document.getElementById('searchInput').addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        performSearch();
+                    }
+                });
+                
+                // Focus search input to make sure it's interactive
+                const searchInput = document.getElementById('searchInput');
+                searchInput.tabIndex = 0;
+                searchInput.focus();
+                
+                // Load recent activity
+                await loadRecentActivity();
+            } catch (error) {
+                console.error('Initialization error:', error);
+                showError('Failed to initialize page: ' + error.message);
+            }
+        }
 
-        // Load recent activity
+        // Load recent activity from all sources
         async function loadRecentActivity() {
             try {
-                // Get recent items from all sources
-                const [files, notes] = await Promise.all([
-                    window.api.getFiles(userData.userId),
-                    window.api.getNotes(userData.userId)
-                ]);
-
-                // Combine and sort all items by date
-                const allItems = [
-                    ...files.map(file => ({
-                        type: 'file',
-                        title: file.alias_name || file.file_name,
-                        date: new Date(file.created_at),
-                        data: file
-                    })),
-                    ...notes.map(note => ({
-                        type: 'note',
-                        title: note.title,
-                        date: new Date(note.created_at),
-                        data: note
-                    }))
-                ];
-
-                // Sort by date descending
-                allItems.sort((a, b) => b.date - a.date);
-
-                // Display recent items
-                displayRecentActivity(allItems.slice(0, 10)); // Show last 10 items
+                // Request recent activities from the main process
+                const activities = await window.api.getRecentActivity(userData.userId, 10);
+                displayRecentActivity(activities);
             } catch (error) {
                 console.error('Error loading recent activity:', error);
+                document.getElementById('recentActivity').innerHTML = 
+                    '<p class="text-center text-gray-500">Failed to load recent activities</p>';
             }
         }
 
         // Display recent activity
-        function displayRecentActivity(items) {
+        function displayRecentActivity(activities) {
             const container = document.getElementById('recentActivity');
             
-            if (items.length === 0) {
-                container.innerHTML = '<p class="text-gray-500">No recent activity</p>';
+            if (!activities || activities.length === 0) {
+                container.innerHTML = '<p class="text-center text-gray-500">No recent activity</p>';
                 return;
             }
 
-            container.innerHTML = items.map(item => {
-                const dateStr = item.date.toLocaleString();
-                let itemHtml = '';
-
+            container.innerHTML = activities.map(item => {
+                // Format date nicely
+                let dateStr = 'Unknown date';
+                try {
+                    dateStr = new Date(item.created_at).toLocaleString();
+                } catch (e) {
+                    console.error('Date formatting error:', e);
+                }
+                
+                // Different styling based on type
+                let typeStyle, typeLabel, itemLink;
+                
                 switch (item.type) {
                     case 'file':
-                        itemHtml = `
-                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded hover:bg-gray-100">
-                                <div>
-                                    <div class="flex items-center">
-                                        <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm mr-2">File</span>
-                                        <span class="font-medium">${item.title}</span>
-                                    </div>
-                                    <div class="text-sm text-gray-500">${dateStr}</div>
-                                </div>
-                                <a href="files.html" class="text-blue-500 hover:text-blue-700">View</a>
-                            </div>
-                        `;
+                        typeStyle = 'bg-blue-100 text-blue-800';
+                        typeLabel = 'File';
+                        itemLink = 'files.html';
                         break;
                     case 'note':
-                        itemHtml = `
-                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded hover:bg-gray-100">
-                                <div>
-                                    <div class="flex items-center">
-                                        <span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-sm mr-2">Note</span>
-                                        <span class="font-medium">${item.title}</span>
-                                    </div>
-                                    <div class="text-sm text-gray-500">${dateStr}</div>
-                                </div>
-                                <a href="notes.html" class="text-blue-500 hover:text-blue-700">View</a>
-                            </div>
-                        `;
+                        typeStyle = 'bg-yellow-100 text-yellow-800';
+                        typeLabel = 'Note';
+                        itemLink = 'notes.html';
                         break;
+                    case 'event':
+                        typeStyle = 'bg-purple-100 text-purple-800';
+                        typeLabel = 'Event';
+                        itemLink = 'calendar.html';
+                        break;
+                    case 'transaction':
+                        typeStyle = 'bg-green-100 text-green-800';
+                        typeLabel = 'Transaction';
+                        itemLink = 'finances.html';
+                        break;
+                    default:
+                        typeStyle = 'bg-gray-100 text-gray-800';
+                        typeLabel = 'Item';
+                        itemLink = '#';
                 }
 
-                return itemHtml;
+                return `
+                    <div class="activity-item flex items-center justify-between p-3 bg-gray-50 rounded hover:bg-gray-100">
+                        <div>
+                            <div class="flex items-center">
+                                <span class="${typeStyle} px-2 py-1 rounded text-sm mr-2">${typeLabel}</span>
+                                <span class="font-medium">${item.title || 'Untitled'}</span>
+                            </div>
+                            <div class="text-sm text-gray-500">${dateStr}</div>
+                        </div>
+                        <a href="${itemLink}" class="text-blue-500 hover:text-blue-700">View</a>
+                    </div>
+                `;
             }).join('');
         }
 
-        // Perform search
+        // Perform search across all data sources
         async function performSearch() {
             const searchTerm = document.getElementById('searchInput').value.trim();
             if (!searchTerm) return;
 
             try {
+                // Show loading indicator
+                document.getElementById('searchResults').classList.remove('hidden');
+                document.getElementById('searchResultsContent').innerHTML = `
+                    <div class="text-center py-4">
+                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                        <p class="mt-2 text-gray-500">Searching...</p>
+                    </div>
+                `;
+
+                // Perform the search
                 const results = await window.api.searchAll(userData.userId, searchTerm);
                 displaySearchResults(results);
             } catch (error) {
                 console.error('Search error:', error);
+                showError('Search failed: ' + error.message);
+                document.getElementById('searchResultsContent').innerHTML = 
+                    '<p class="text-center text-red-500">Search failed. Please try again.</p>';
             }
         }
 
@@ -202,50 +256,128 @@
         function displaySearchResults(results) {
             const container = document.getElementById('searchResultsContent');
             const resultsSection = document.getElementById('searchResults');
+            const resultsCount = document.getElementById('resultsCount');
+            
             resultsSection.classList.remove('hidden');
+            resultsCount.textContent = `${results.length} result${results.length !== 1 ? 's' : ''}`;
 
             if (results.length === 0) {
-                container.innerHTML = '<p class="text-gray-500">No results found</p>';
+                container.innerHTML = '<p class="text-center text-gray-500">No results found</p>';
                 return;
             }
 
-            container.innerHTML = results.map(item => {
-                const dateStr = new Date(item.created_at).toLocaleString();
-                let itemHtml = '';
-
-                switch (item.type) {
+            // Group results by type
+            const groupedResults = {
+                file: [],
+                note: [],
+                event: [],
+                transaction: []
+            };
+            
+            results.forEach(item => {
+                if (groupedResults[item.type]) {
+                    groupedResults[item.type].push(item);
+                }
+            });
+            
+            // Build the results HTML
+            let resultsHTML = '';
+            
+            // Files section
+            if (groupedResults.file.length > 0) {
+                resultsHTML += buildResultsSection('Files', groupedResults.file, 'file');
+            }
+            
+            // Notes section
+            if (groupedResults.note.length > 0) {
+                resultsHTML += buildResultsSection('Notes', groupedResults.note, 'note');
+            }
+            
+            // Events section
+            if (groupedResults.event.length > 0) {
+                resultsHTML += buildResultsSection('Events', groupedResults.event, 'event');
+            }
+            
+            // Transactions section
+            if (groupedResults.transaction.length > 0) {
+                resultsHTML += buildResultsSection('Transactions', groupedResults.transaction, 'transaction');
+            }
+            
+            container.innerHTML = resultsHTML;
+        }
+        
+        // Build a section of results for a specific type
+        function buildResultsSection(title, items, type) {
+            let html = `
+                <div class="mb-6">
+                    <h3 class="text-lg font-semibold mb-2">${title}</h3>
+                    <div class="space-y-2">
+            `;
+            
+            items.forEach(item => {
+                let dateStr = 'Unknown date';
+                try {
+                    // Different date field depending on type
+                    const dateField = type === 'transaction' ? 'transaction_date' : 'created_at';
+                    dateStr = new Date(item[dateField]).toLocaleString();
+                } catch (e) {
+                    console.error('Date formatting error:', e);
+                }
+                
+                // Different fields and links depending on type
+                let itemTitle, itemLink;
+                
+                switch (type) {
                     case 'file':
-                        itemHtml = `
-                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded hover:bg-gray-100">
-                                <div>
-                                    <div class="flex items-center">
-                                        <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm mr-2">File</span>
-                                        <span class="font-medium">${item.alias_name || item.file_name}</span>
-                                    </div>
-                                    <div class="text-sm text-gray-500">${dateStr}</div>
-                                </div>
-                                <a href="files.html" class="text-blue-500 hover:text-blue-700">View</a>
-                            </div>
-                        `;
+                        itemTitle = item.alias_name || item.file_name || 'Unnamed file';
+                        itemLink = 'files.html';
                         break;
                     case 'note':
-                        itemHtml = `
-                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded hover:bg-gray-100">
-                                <div>
-                                    <div class="flex items-center">
-                                        <span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-sm mr-2">Note</span>
-                                        <span class="font-medium">${item.title}</span>
-                                    </div>
-                                    <div class="text-sm text-gray-500">${dateStr}</div>
-                                </div>
-                                <a href="notes.html" class="text-blue-500 hover:text-blue-700">View</a>
-                            </div>
-                        `;
+                        itemTitle = item.title || 'Untitled note';
+                        itemLink = 'notes.html';
                         break;
+                    case 'event':
+                        itemTitle = item.event_name || 'Unnamed event';
+                        itemLink = 'calendar.html';
+                        break;
+                    case 'transaction':
+                        itemTitle = item.description || `${item.transaction_type} of ${item.amount}`;
+                        itemLink = 'finances.html';
+                        break;
+                    default:
+                        itemTitle = 'Unknown item';
+                        itemLink = '#';
                 }
+                
+                html += `
+                    <div class="activity-item flex items-center justify-between p-3 bg-gray-50 rounded hover:bg-gray-100">
+                        <div>
+                            <span class="font-medium">${itemTitle}</span>
+                            <div class="text-sm text-gray-500">${dateStr}</div>
+                        </div>
+                        <a href="${itemLink}" class="text-blue-500 hover:text-blue-700">View</a>
+                    </div>
+                `;
+            });
+            
+            html += `
+                    </div>
+                </div>
+            `;
+            
+            return html;
+        }
 
-                return itemHtml;
-            }).join('');
+        // Error handling
+        function showError(message) {
+            const errorAlert = document.getElementById('errorAlert');
+            document.getElementById('errorMessage').textContent = message;
+            errorAlert.classList.remove('hidden');
+            setTimeout(() => hideError(), 5000);
+        }
+        
+        function hideError() {
+            document.getElementById('errorAlert').classList.add('hidden');
         }
 
         // Logout function

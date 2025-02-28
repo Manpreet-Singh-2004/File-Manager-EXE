@@ -31,6 +31,19 @@
             border-radius: 4px;
             cursor: pointer;
         }
+        
+        /* Removed add-more-events button style */
+        
+        .event-actions {
+            display: none;
+            position: absolute;
+            right: 6px;
+            top: 0;
+        }
+        
+        .event-chip:hover .event-actions {
+            display: flex;
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100">
@@ -79,13 +92,13 @@
             <div class="p-2 text-center font-semibold bg-gray-800">Saturday</div>
 
             <!-- Calendar days will be inserted here -->
-            <div id="calendarDays"></div>
+            <div id="calendarDays" class="contents"></div>
         </div>
     </div>
 
     <!-- Event Dialog -->
-    <div id="eventDialog" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center">
-        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md">
+    <div id="eventDialog" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50" tabindex="-1">
+        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md" role="dialog" aria-modal="true">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold" id="dialogTitle">New Event</h3>
                 <button onclick="hideEventDialog()" class="text-gray-400 hover:text-gray-200">&times;</button>
@@ -140,13 +153,38 @@
                         <option value="yearly">Yearly</option>
                     </select>
                 </div>
-                <div class="flex justify-end space-x-2 mt-4">
-                    <button type="button" onclick="hideEventDialog()" 
-                            class="px-4 py-2 border border-gray-600 rounded hover:bg-gray-700">Cancel</button>
-                    <button type="submit" 
-                            class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Save</button>
+                <div class="flex justify-between space-x-2 mt-4">
+                    <button type="button" id="deleteEventBtn" onclick="confirmDeleteEvent()" 
+                            class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 hidden">Delete</button>
+                    <div class="flex justify-end space-x-2">
+                        <button type="button" onclick="hideEventDialog()" 
+                                class="px-4 py-2 border border-gray-600 rounded hover:bg-gray-700">Cancel</button>
+                        <button type="submit" 
+                                class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Save</button>
+                    </div>
                 </div>
             </form>
+        </div>
+    </div>
+    
+    <!-- Events List Dialog for a specific date -->
+    <div id="eventsListDialog" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50" tabindex="-1">
+        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md" role="dialog" aria-modal="true">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold" id="eventsListTitle">Events for <span id="eventsListDate"></span></h3>
+                <button onclick="hideEventsListDialog()" class="text-gray-400 hover:text-gray-200">&times;</button>
+            </div>
+            <div id="eventsList" class="space-y-2 max-h-96 overflow-y-auto">
+                <!-- Events will be listed here -->
+            </div>
+            <div class="flex justify-between mt-4">
+                <button onclick="showEventDialog()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    Add New Event
+                </button>
+                <button onclick="hideEventsListDialog()" class="px-4 py-2 border border-gray-600 rounded hover:bg-gray-700">
+                    Close
+                </button>
+            </div>
         </div>
     </div>
 
@@ -155,35 +193,66 @@
         let currentDate = new Date();
         let selectedDate = null;
         let currentEvents = [];
+        let dateForNewEvent = null;
 
         // Initialize page
-        window.onload = async () => {
-            const userInfo = localStorage.getItem('userInfo');
-            if (!userInfo) {
-                window.location.href = 'index.html';
-                return;
-            }
-            userData = JSON.parse(userInfo);
-            document.getElementById('username').textContent = userData.username;
+        window.onload = () => {
+            // First, ensure DOM is fully loaded
+            setTimeout(() => {
+                const userInfo = localStorage.getItem('userInfo');
+                if (!userInfo) {
+                    // For testing, create a dummy user if none exists
+                    userData = { 
+                        userId: 'user_1',
+                        username: 'Test User'
+                    };
+                    localStorage.setItem('userInfo', JSON.stringify(userData));
+                } else {
+                    userData = JSON.parse(userInfo);
+                }
+                
+                document.getElementById('username').textContent = userData.username;
 
-            // Setup recurring event checkbox handler
-            document.getElementById('isRecurring').addEventListener('change', function() {
-                document.getElementById('recurrenceOptions').style.display = 
-                    this.checked ? 'block' : 'none';
-            });
+                // Setup recurring event checkbox handler
+                document.getElementById('isRecurring').addEventListener('change', function() {
+                    document.getElementById('recurrenceOptions').style.display = 
+                        this.checked ? 'block' : 'none';
+                });
 
-            await loadEvents();
-            renderCalendar();
+                // Setup event form
+                document.getElementById('eventForm').addEventListener('submit', saveEvent);
+
+                // Load events after a small delay to ensure DOM is interactive
+                setTimeout(() => {
+                    loadEvents();
+                    renderCalendar();
+                    
+                    // Explicitly focus the calendar to ensure it's interactive
+                    const firstCalendarDay = document.querySelector('.calendar-day');
+                    if (firstCalendarDay) {
+                        firstCalendarDay.focus();
+                    }
+                }, 100);
+            }, 100);
         };
 
-        // Load events
-        async function loadEvents() {
+        // Load events from localStorage
+        function loadEvents() {
             try {
-                const events = await window.api.getEvents(userData.userId);
-                currentEvents = events;
+                // Load from localStorage
+                const savedEvents = localStorage.getItem('calendarEvents');
+                
+                if (savedEvents) {
+                    currentEvents = JSON.parse(savedEvents);
+                } else {
+                    currentEvents = [];
+                }
+                
                 renderCalendar(); // Re-render to show events
             } catch (error) {
                 console.error('Error loading events:', error);
+                currentEvents = [];
+                renderCalendar();
             }
         }
 
@@ -207,11 +276,15 @@
             // Previous month days
             const prevMonthDays = startingDay;
             const prevMonth = new Date(year, month, 0);
-            for (let i = prevMonthDays - 1; i >= 0; i--) {
+            const daysInPrevMonth = prevMonth.getDate();
+            
+            for (let i = 0; i < prevMonthDays; i++) {
+                const dayNum = daysInPrevMonth - prevMonthDays + i + 1;
+                const date = new Date(year, month - 1, dayNum);
                 const dayDiv = createDayCell(
-                    prevMonth.getDate() - i,
-                    `text-gray-600 bg-gray-800`,
-                    new Date(year, month - 1, prevMonth.getDate() - i)
+                    dayNum,
+                    'text-gray-600 bg-gray-800',
+                    date
                 );
                 calendarDays.appendChild(dayDiv);
             }
@@ -232,12 +305,13 @@
 
             // Next month days
             const totalCells = 42; // 6 rows × 7 days
-            const remainingCells = totalCells - (prevMonthDays + daysInMonth);
-            for (let day = 1; day <= remainingCells; day++) {
+            const nextMonthDays = totalCells - (prevMonthDays + daysInMonth);
+            for (let day = 1; day <= nextMonthDays; day++) {
+                const date = new Date(year, month + 1, day);
                 const dayDiv = createDayCell(
                     day,
                     'text-gray-600 bg-gray-800',
-                    new Date(year, month + 1, day)
+                    date
                 );
                 calendarDays.appendChild(dayDiv);
             }
@@ -252,7 +326,7 @@
             // Add click handler
             div.addEventListener('click', () => selectDate(date));
 
-            // Add events for this day
+            // Filter events for this day
             const dayEvents = currentEvents.filter(event => {
                 const eventDate = new Date(event.start_date);
                 return eventDate.toDateString() === date.toDateString();
@@ -261,20 +335,119 @@
             if (dayEvents.length > 0) {
                 const eventsContainer = document.createElement('div');
                 eventsContainer.className = 'mt-6 space-y-1';
-                dayEvents.forEach(event => {
+                
+                // Show up to 3 events directly
+                const displayLimit = Math.min(dayEvents.length, 3);
+                for (let i = 0; i < displayLimit; i++) {
+                    const event = dayEvents[i];
                     const eventDiv = document.createElement('div');
-                    eventDiv.className = 'event-chip bg-blue-500 text-white';
+                    eventDiv.className = 'event-chip bg-blue-500 text-white relative';
                     eventDiv.textContent = event.event_name;
                     eventDiv.addEventListener('click', (e) => {
                         e.stopPropagation();
                         editEvent(event);
                     });
                     eventsContainer.appendChild(eventDiv);
-                });
+                }
+                
+                // Add indicator for more events
+                if (dayEvents.length > 3) {
+                    const moreEvents = document.createElement('div');
+                    moreEvents.className = 'event-chip bg-gray-600 text-white text-center';
+                    moreEvents.textContent = `+ ${dayEvents.length - 3} more`;
+                    moreEvents.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        showEventsListDialog(date, dayEvents);
+                    });
+                    eventsContainer.appendChild(moreEvents);
+                }
+                
                 div.appendChild(eventsContainer);
             }
+            
+            // No "+" button - the entire date cell is clickable
 
             return div;
+        }
+
+        // Show events list dialog for a specific date
+        function showEventsListDialog(date, events) {
+            const dialog = document.getElementById('eventsListDialog');
+            const eventsList = document.getElementById('eventsList');
+            const dateSpan = document.getElementById('eventsListDate');
+            
+            // Set date in title
+            dateSpan.textContent = date.toLocaleDateString();
+            
+            // Save the date for potential new event creation
+            dateForNewEvent = date;
+            
+            // Clear previous list
+            eventsList.innerHTML = '';
+            
+            // Add events to the list
+            if (events && events.length > 0) {
+                events.forEach(event => {
+                    const eventDiv = document.createElement('div');
+                    eventDiv.className = 'p-3 bg-gray-700 rounded flex justify-between items-center';
+                    
+                    const eventInfo = document.createElement('div');
+                    eventInfo.className = 'flex-grow';
+                    
+                    const eventName = document.createElement('div');
+                    eventName.className = 'font-semibold';
+                    eventName.textContent = event.event_name;
+                    
+                    const eventTime = document.createElement('div');
+                    eventTime.className = 'text-sm text-gray-400';
+                    eventTime.textContent = event.start_time ? `at ${event.start_time}` : 'All day';
+                    
+                    eventInfo.appendChild(eventName);
+                    eventInfo.appendChild(eventTime);
+                    
+                    const actionsDiv = document.createElement('div');
+                    actionsDiv.className = 'flex space-x-2';
+                    
+                    const editBtn = document.createElement('button');
+                    editBtn.className = 'text-blue-400 hover:text-blue-300';
+                    editBtn.innerHTML = '✏️';
+                    editBtn.title = 'Edit';
+                    editBtn.addEventListener('click', () => {
+                        hideEventsListDialog();
+                        editEvent(event);
+                    });
+                    
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'text-red-400 hover:text-red-300';
+                    deleteBtn.innerHTML = '🗑️';
+                    deleteBtn.title = 'Delete';
+                    deleteBtn.addEventListener('click', () => {
+                        if (confirm(`Delete event "${event.event_name}"?`)) {
+                            deleteEvent(event.event_id);
+                            hideEventsListDialog();
+                        }
+                    });
+                    
+                    actionsDiv.appendChild(editBtn);
+                    actionsDiv.appendChild(deleteBtn);
+                    
+                    eventDiv.appendChild(eventInfo);
+                    eventDiv.appendChild(actionsDiv);
+                    
+                    eventsList.appendChild(eventDiv);
+                });
+            } else {
+                const noEvents = document.createElement('div');
+                noEvents.className = 'text-center text-gray-500 p-4';
+                noEvents.textContent = 'No events for this date';
+                eventsList.appendChild(noEvents);
+            }
+            
+            dialog.classList.remove('hidden');
+        }
+        
+        function hideEventsListDialog() {
+            document.getElementById('eventsListDialog').classList.add('hidden');
         }
 
         // Navigation functions
@@ -295,7 +468,18 @@
                 day.classList.remove('selected');
             });
             renderCalendar();
-            showEventDialog(date);
+            
+            // Show events for this date
+            const dayEvents = currentEvents.filter(event => {
+                const eventDate = new Date(event.start_date);
+                return eventDate.toDateString() === date.toDateString();
+            });
+            
+            if (dayEvents.length > 0) {
+                showEventsListDialog(date, dayEvents);
+            } else {
+                showEventDialog(date);
+            }
         }
 
         // Helper functions
@@ -308,21 +492,42 @@
             return selectedDate && date.toDateString() === selectedDate.toDateString();
         }
 
+        // Format date as YYYY-MM-DD
+        function formatDate(date) {
+            if (!date) return '';
+            const d = new Date(date);
+            return d.toISOString().split('T')[0];
+        }
+
         // Event dialog functions
         function showEventDialog(date = null) {
             const dialog = document.getElementById('eventDialog');
             const form = document.getElementById('eventForm');
+            const deleteBtn = document.getElementById('deleteEventBtn');
             
             // Reset form
             form.reset();
             document.getElementById('eventId').value = '';
             document.getElementById('recurrenceOptions').style.display = 'none';
+            document.getElementById('dialogTitle').textContent = 'New Event';
+            deleteBtn.classList.add('hidden');
 
             // Set default dates
             if (date) {
-                const dateStr = date.toISOString().split('T')[0];
+                const dateStr = formatDate(date);
                 document.getElementById('startDate').value = dateStr;
                 document.getElementById('endDate').value = dateStr;
+                document.getElementById('alarmDate').value = dateStr;
+            } else if (dateForNewEvent) {
+                const dateStr = formatDate(dateForNewEvent);
+                document.getElementById('startDate').value = dateStr;
+                document.getElementById('endDate').value = dateStr;
+                document.getElementById('alarmDate').value = dateStr;
+            } else {
+                const today = formatDate(new Date());
+                document.getElementById('startDate').value = today;
+                document.getElementById('endDate').value = today;
+                document.getElementById('alarmDate').value = today;
             }
 
             dialog.classList.remove('hidden');
@@ -331,122 +536,161 @@
         function hideEventDialog() {
             document.getElementById('eventDialog').classList.add('hidden');
             document.getElementById('eventForm').reset();
+            dateForNewEvent = null;
         }
 
         // Edit event
         function editEvent(event) {
-    const dialog = document.getElementById('eventDialog');
-    document.getElementById('dialogTitle').textContent = 'Edit Event';
-    document.getElementById('eventId').value = event.event_id;
-    document.getElementById('eventName').value = event.event_name;
-    document.getElementById('eventDescription').value = event.event_description || '';
-    
-    // Set dates and times
-    if (event.start_date) {
-        const startDate = new Date(event.start_date);
-        document.getElementById('startDate').value = startDate.toISOString().split('T')[0];
-    }
-    if (event.start_time) {
-        document.getElementById('startTime').value = event.start_time;
-    }
-    if (event.end_date) {
-        const endDate = new Date(event.end_date);
-        document.getElementById('endDate').value = endDate.toISOString().split('T')[0];
-    }
-    if (event.end_time) {
-        document.getElementById('endTime').value = event.end_time;
-    }
-    if (event.alarm_date) {
-        const alarmDate = new Date(event.alarm_date);
-        document.getElementById('alarmDate').value = alarmDate.toISOString().split('T')[0];
-    }
-    if (event.alarm_time) {
-        document.getElementById('alarmTime').value = event.alarm_time;
-    }
+            const dialog = document.getElementById('eventDialog');
+            const deleteBtn = document.getElementById('deleteEventBtn');
+            
+            document.getElementById('dialogTitle').textContent = 'Edit Event';
+            document.getElementById('eventId').value = event.event_id;
+            document.getElementById('eventName').value = event.event_name;
+            document.getElementById('eventDescription').value = event.event_description || '';
+            
+            // Set dates and times
+            document.getElementById('startDate').value = formatDate(event.start_date);
+            document.getElementById('startTime').value = event.start_time || '';
+            
+            document.getElementById('endDate').value = formatDate(event.end_date) || formatDate(event.start_date);
+            document.getElementById('endTime').value = event.end_time || '';
+            
+            document.getElementById('alarmDate').value = formatDate(event.alarm_date) || '';
+            document.getElementById('alarmTime').value = event.alarm_time || '';
 
-    // Set recurring options
-    const isRecurring = document.getElementById('isRecurring');
-    isRecurring.checked = event.is_recurring;
-    document.getElementById('recurrenceOptions').style.display = event.is_recurring ? 'block' : 'none';
-    if (event.recurrence_pattern) {
-        document.getElementById('recurrencePattern').value = event.recurrence_pattern;
-    }
+            // Set recurring options
+            const isRecurring = document.getElementById('isRecurring');
+            isRecurring.checked = event.is_recurring === 'true' || event.is_recurring === true;
+            document.getElementById('recurrenceOptions').style.display = 
+                isRecurring.checked ? 'block' : 'none';
+                
+            if (event.recurrence_pattern) {
+                document.getElementById('recurrencePattern').value = event.recurrence_pattern;
+            }
+            
+            // Show delete button for existing events
+            deleteBtn.classList.remove('hidden');
 
-    dialog.classList.remove('hidden');
-}
-
-// Handle form submission
-document.getElementById('eventForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const eventData = {
-        eventId: document.getElementById('eventId').value,
-        userId: userData.userId,
-        eventName: document.getElementById('eventName').value,
-        eventDescription: document.getElementById('eventDescription').value,
-        startDate: document.getElementById('startDate').value,
-        startTime: document.getElementById('startTime').value,
-        endDate: document.getElementById('endDate').value,
-        endTime: document.getElementById('endTime').value,
-        alarmDate: document.getElementById('alarmDate').value,
-        alarmTime: document.getElementById('alarmTime').value,
-        isRecurring: document.getElementById('isRecurring').checked,
-        recurrencePattern: document.getElementById('isRecurring').checked ? 
-            document.getElementById('recurrencePattern').value : null,
-        notificationSent: false
-    };
-
-    try {
-        if (eventData.eventId) {
-            // Update existing event
-            await window.api.updateEvent(eventData);
-            showSuccess('Event updated successfully');
-        } else {
-            // Create new event
-            await window.api.createEvent(eventData);
-            showSuccess('Event created successfully');
+            dialog.classList.remove('hidden');
         }
-        
-        hideEventDialog();
-        await loadEvents();
-    } catch (error) {
-        console.error('Error saving event:', error);
-        showError(error.message || 'Failed to save event');
-    }
-});
 
-// Delete event
-async function deleteEvent(eventId) {
-    if (!confirm('Are you sure you want to delete this event?')) {
-        return;
-    }
+        // Save event (create or update)
+        async function saveEvent(e) {
+            e.preventDefault();
+            
+            // Generate a unique ID if new event
+            const eventId = document.getElementById('eventId').value || 
+                           'evt_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+            
+            // Get current timestamp for created_at (if new event)
+            const now = new Date().toISOString();
+            
+            // Create event object matching Events.csv structure
+            const eventData = {
+                event_id: eventId,
+                user_id: userData.userId,
+                event_name: document.getElementById('eventName').value,
+                event_description: document.getElementById('eventDescription').value,
+                start_date: document.getElementById('startDate').value,
+                start_time: document.getElementById('startTime').value || '',
+                end_date: document.getElementById('endDate').value || document.getElementById('startDate').value,
+                end_time: document.getElementById('endTime').value || '',
+                alarm_date: document.getElementById('alarmDate').value || '',
+                alarm_time: document.getElementById('alarmTime').value || '',
+                is_recurring: document.getElementById('isRecurring').checked ? 'true' : 'false',
+                recurrence_pattern: document.getElementById('isRecurring').checked ? 
+                    document.getElementById('recurrencePattern').value : '',
+                notification_sent: 'false',
+                created_at: document.getElementById('eventId').value ? '' : now
+            };
+            
+            // Save directly to localStorage - no API needed
+            // If editing, remove old event first
+            if (document.getElementById('eventId').value) {
+                const index = currentEvents.findIndex(e => e.event_id === eventData.event_id);
+                if (index >= 0) {
+                    currentEvents.splice(index, 1);
+                }
+                showSuccess('Event updated successfully');
+            } else {
+                showSuccess('Event created successfully');
+            }
+            
+            // Add new/updated event to the array
+            currentEvents.push(eventData);
+            
+            // Save to localStorage
+            localStorage.setItem('calendarEvents', JSON.stringify(currentEvents));
+            
+            // Close dialog and refresh calendar
+            hideEventDialog();
+            renderCalendar();
+        }
 
-    try {
-        await window.api.deleteEvent(eventId, userData.userId);
-        await loadEvents();
-        showSuccess('Event deleted successfully');
-    } catch (error) {
-        console.error('Error deleting event:', error);
-        showError('Failed to delete event');
-    }
-}
+        // Confirm delete event
+        function confirmDeleteEvent() {
+            const eventId = document.getElementById('eventId').value;
+            const eventName = document.getElementById('eventName').value;
+            
+            if (confirm(`Are you sure you want to delete "${eventName}"?`)) {
+                deleteEvent(eventId);
+            }
+        }
 
-// Alert functions
-function showError(message) {
-    // You can implement your preferred way of showing errors
-    alert(message);
-}
+        // Delete event
+        function deleteEvent(eventId) {
+            try {
+                // Delete from localStorage
+                const index = currentEvents.findIndex(e => e.event_id === eventId);
+                if (index >= 0) {
+                    currentEvents.splice(index, 1);
+                    localStorage.setItem('calendarEvents', JSON.stringify(currentEvents));
+                    showSuccess('Event deleted successfully');
+                }
+                
+                hideEventDialog();
+                loadEvents();
+            } catch (error) {
+                console.error('Error deleting event:', error);
+                showError('Failed to delete event');
+            }
+        }
 
-function showSuccess(message) {
-    // You can implement your preferred way of showing success messages
-    alert(message);
-}
+        // Alert functions with better UX
+        function showError(message) {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50';
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                notification.classList.add('opacity-0', 'transition-opacity', 'duration-500');
+                setTimeout(() => notification.remove(), 500);
+            }, 3000);
+        }
 
-// Logout function
-function logout() {
-    localStorage.removeItem('userInfo');
-    window.location.href = 'index.html';
-}
-</script>
+        function showSuccess(message) {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50';
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                notification.classList.add('opacity-0', 'transition-opacity', 'duration-500');
+                setTimeout(() => notification.remove(), 500);
+            }, 3000);
+        }
+
+        // Logout function
+        function logout() {
+            localStorage.removeItem('userInfo');
+            window.location.href = 'index.html';
+        }
+    </script>
 </body>
 </html>

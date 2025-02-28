@@ -52,6 +52,155 @@ db.serialize(() => {
     });
 });
 
+// -------------------- Trial ---------------------------
+
+async function searchAll(userId, searchTerm) {
+    try {
+      // Ensure the search term is properly formatted for SQL queries
+      const searchPattern = `%${searchTerm}%`;
+      
+      // Search in Files
+      const fileResults = await db.all(`
+        SELECT 
+          file_id, user_id, file_name, alias_name, file_path, file_size, 
+          file_type, is_synced, created_at, last_modified, 
+          'file' as type 
+        FROM Files 
+        WHERE user_id = ? AND (
+          file_name LIKE ? OR 
+          alias_name LIKE ?
+        )
+      `, [userId, searchPattern, searchPattern]);
+      
+      // Search in Notes
+      const noteResults = await db.all(`
+        SELECT 
+          note_id, user_id, title, content, is_todo, is_completed, 
+          due_date, priority, created_at, last_modified, 
+          'note' as type 
+        FROM Notes 
+        WHERE user_id = ? AND (
+          title LIKE ? OR 
+          content LIKE ?
+        )
+      `, [userId, searchPattern, searchPattern]);
+      
+      // Search in Events
+      const eventResults = await db.all(`
+        SELECT 
+          event_id, user_id, event_name, event_description, start_date, 
+          start_time, end_date, end_time, alarm_date, alarm_time, 
+          is_recurring, recurrence_pattern, notification_sent, created_at, 
+          'event' as type 
+        FROM Events 
+        WHERE user_id = ? AND (
+          event_name LIKE ? OR 
+          event_description LIKE ?
+        )
+      `, [userId, searchPattern, searchPattern]);
+      
+      // Search in Transactions
+      const transactionResults = await db.all(`
+        SELECT 
+          transaction_id, user_id, amount, transaction_type, category, 
+          description, receipt_id, transaction_date, 
+          'transaction' as type 
+        FROM Transactions 
+        WHERE user_id = ? AND (
+          description LIKE ? OR 
+          category LIKE ?
+        )
+      `, [userId, searchPattern, searchPattern]);
+      
+      // Combine all results
+      const allResults = [
+        ...fileResults,
+        ...noteResults,
+        ...eventResults,
+        ...transactionResults
+      ];
+      
+      return allResults;
+    } catch (error) {
+      console.error('Search error:', error);
+      throw error;
+    }
+  }
+  
+  // Recent activity function that gets recent items from all sources
+  async function getRecentActivity(userId, limit = 10) {
+    try {
+      // Get recent files
+      const fileResults = await db.all(`
+        SELECT 
+          file_id as id, user_id, file_name as title, alias_name, created_at,
+          'file' as type 
+        FROM Files 
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        LIMIT ?
+      `, [userId, limit]);
+      
+      // Get recent notes
+      const noteResults = await db.all(`
+        SELECT 
+          note_id as id, user_id, title, created_at,
+          'note' as type 
+        FROM Notes 
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        LIMIT ?
+      `, [userId, limit]);
+      
+      // Get recent events
+      const eventResults = await db.all(`
+        SELECT 
+          event_id as id, user_id, event_name as title, created_at,
+          'event' as type 
+        FROM Events 
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        LIMIT ?
+      `, [userId, limit]);
+      
+      // Get recent transactions
+      const transactionResults = await db.all(`
+        SELECT 
+          transaction_id as id, user_id, description as title, transaction_date as created_at,
+          'transaction' as type 
+        FROM Transactions 
+        WHERE user_id = ?
+        ORDER BY transaction_date DESC
+        LIMIT ?
+      `, [userId, limit]);
+      
+      // Combine all results
+      const allResults = [
+        ...fileResults,
+        ...noteResults,
+        ...eventResults,
+        ...transactionResults
+      ];
+      
+      // Sort by date descending
+      allResults.sort((a, b) => {
+        return new Date(b.created_at) - new Date(a.created_at);
+      });
+      
+      // Return the most recent items
+      return allResults.slice(0, limit);
+    } catch (error) {
+      console.error('Activity error:', error);
+      throw error;
+    }
+  }
+  
+  // Export these functions to be available to your renderer
+  exports.searchAll = searchAll;
+  exports.getRecentActivity = getRecentActivity;
+
+// -------------------- Trial End --------------------------
+
 // Expose APIs
 searchAll: async (userId, searchTerm) => {
     return new Promise((resolve, reject) => {
@@ -156,6 +305,190 @@ contextBridge.exposeInMainWorld(
                         reject(new Error('Authentication error'));
                     }
                 });
+            });
+        },
+
+        searchAll: async (userId, searchTerm) => {
+            return new Promise(async (resolve, reject) => {
+                try {
+                    // Ensure the search term is properly formatted for SQL queries
+                    const searchPattern = `%${searchTerm}%`;
+                    
+                    // Search in Files
+                    const filePromise = new Promise((resolve, reject) => {
+                        db.all(`
+                            SELECT 
+                                file_id, user_id, file_name, alias_name, file_path, file_size, 
+                                file_type, is_synced, created_at, last_modified, 
+                                'file' as type 
+                            FROM Files 
+                            WHERE user_id = ? AND (
+                                file_name LIKE ? OR 
+                                alias_name LIKE ?
+                            )
+                        `, [userId, searchPattern, searchPattern], (err, rows) => {
+                            if (err) {
+                                console.error('Error searching files:', err);
+                                resolve([]); // Don't reject, just return empty results
+                            } else {
+                                resolve(rows);
+                            }
+                        });
+                    });
+                    
+                    // Search in Notes
+                    const notePromise = new Promise((resolve, reject) => {
+                        db.all(`
+                            SELECT 
+                                note_id, user_id, title, content, is_todo, is_completed, 
+                                due_date, priority, created_at, last_modified, 
+                                'note' as type 
+                            FROM Notes 
+                            WHERE user_id = ? AND (
+                                title LIKE ? OR 
+                                content LIKE ?
+                            )
+                        `, [userId, searchPattern, searchPattern], (err, rows) => {
+                            if (err) {
+                                console.error('Error searching notes:', err);
+                                resolve([]); // Don't reject, just return empty results
+                            } else {
+                                resolve(rows);
+                            }
+                        });
+                    });
+                    
+                    // Search in Events
+                    const eventPromise = new Promise((resolve, reject) => {
+                        db.all(`
+                            SELECT 
+                                event_id, user_id, event_name, event_description, start_date, 
+                                start_time, end_date, end_time, alarm_date, alarm_time, 
+                                is_recurring, recurrence_pattern, notification_sent, created_at, 
+                                'event' as type 
+                            FROM Events 
+                            WHERE user_id = ? AND (
+                                event_name LIKE ? OR 
+                                event_description LIKE ?
+                            )
+                        `, [userId, searchPattern, searchPattern], (err, rows) => {
+                            if (err) {
+                                console.error('Error searching events:', err);
+                                resolve([]); // Don't reject, just return empty results
+                            } else {
+                                resolve(rows);
+                            }
+                        });
+                    });
+                    
+                    // Combine all search results
+                    const [fileResults, noteResults, eventResults] = await Promise.all([
+                        filePromise, notePromise, eventPromise
+                    ]);
+                    
+                    const allResults = [
+                        ...fileResults,
+                        ...noteResults,
+                        ...eventResults
+                    ].sort((a, b) => {
+                        return new Date(b.created_at || b.last_modified) - new Date(a.created_at || a.last_modified);
+                    });
+                    
+                    resolve(allResults);
+                } catch (error) {
+                    console.error('Search error:', error);
+                    reject(new Error('Search failed'));
+                }
+            });
+        },
+        
+        // Get recent activity
+        getRecentActivity: async (userId, limit = 10) => {
+            return new Promise(async (resolve, reject) => {
+                try {
+                    // Get recent files
+                    const filePromise = new Promise((resolve, reject) => {
+                        db.all(`
+                            SELECT 
+                                file_id as id, user_id, file_name as title, alias_name, created_at,
+                                'file' as type 
+                            FROM Files 
+                            WHERE user_id = ?
+                            ORDER BY created_at DESC
+                            LIMIT ?
+                        `, [userId, limit], (err, rows) => {
+                            if (err) {
+                                console.error('Error getting recent files:', err);
+                                resolve([]); // Don't reject, just return empty results
+                            } else {
+                                resolve(rows);
+                            }
+                        });
+                    });
+                    
+                    // Get recent notes
+                    const notePromise = new Promise((resolve, reject) => {
+                        db.all(`
+                            SELECT 
+                                note_id as id, user_id, title, created_at,
+                                'note' as type 
+                            FROM Notes 
+                            WHERE user_id = ?
+                            ORDER BY created_at DESC
+                            LIMIT ?
+                        `, [userId, limit], (err, rows) => {
+                            if (err) {
+                                console.error('Error getting recent notes:', err);
+                                resolve([]); // Don't reject, just return empty results
+                            } else {
+                                resolve(rows);
+                            }
+                        });
+                    });
+                    
+                    // Get recent events
+                    const eventPromise = new Promise((resolve, reject) => {
+                        db.all(`
+                            SELECT 
+                                event_id as id, user_id, event_name as title, created_at,
+                                'event' as type 
+                            FROM Events 
+                            WHERE user_id = ?
+                            ORDER BY created_at DESC
+                            LIMIT ?
+                        `, [userId, limit], (err, rows) => {
+                            if (err) {
+                                console.error('Error getting recent events:', err);
+                                resolve([]); // Don't reject, just return empty results
+                            } else {
+                                resolve(rows);
+                            }
+                        });
+                    });
+                    
+                    // Get all results from all promises
+                    const [fileResults, noteResults, eventResults] = await Promise.all([
+                        filePromise, notePromise, eventPromise
+                    ]);
+                    
+                    // Combine all results
+                    const allResults = [
+                        ...fileResults,
+                        ...noteResults,
+                        ...eventResults
+                    ];
+                    
+                    // Sort by date descending
+                    allResults.sort((a, b) => {
+                        return new Date(b.created_at) - new Date(a.created_at);
+                    });
+                    
+                    // Return the most recent items
+                    resolve(allResults.slice(0, limit));
+                } catch (error) {
+                    console.error('Recent activity error:', error);
+                    reject(new Error('Failed to load recent activity'));
+                }
             });
         },
 
@@ -677,6 +1010,11 @@ contextBridge.exposeInMainWorld(
             });
         });
     }
+
+    // -----------------------
+
+    
+
 }
 );
 

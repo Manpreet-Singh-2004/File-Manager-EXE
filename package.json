@@ -10,7 +10,7 @@
     "create-admin": "node create-admin.js",
     "reset-db": "npm run drop-db && npm run init-db && npm run create-admin",
     "generate-icons": "electron-icon-builder --input=./icon.png --output=./build --flatten",
-    "build": "electron-packager . File-Manager --platform=win32 --arch=x64 --out=dist --overwrite",
+    "build": "electron-packager . File-Manager --platform=win32 --arch=x64 --out=dist --overwrite --icon=icon.ico",
     "pack": "electron-builder --dir"
   },
   "build": {
@@ -21,13 +21,11 @@
       "buildResources": "build"
     },
     "win": {
-      "target": ["nsis"],
-      "icon": "build/icons/win/icon.ico"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true
+      "icon": "icon.ico",
+      "target": [
+        "nsis",
+        "portable"
+      ]
     }
   },
   "author": "",
