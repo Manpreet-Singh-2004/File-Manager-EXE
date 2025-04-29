@@ -1,6 +1,6 @@
 # File Manager App
 <p align="center">
-  <img src="" width="100" alt="File Manager Icon">
+  <img src="https://github.com/Manpreet-Singh-2004/File-Manager-EXE/blob/main/iconPNG.png" width="100" alt="File Manager Icon">
 </p>
 
 A personal desktop application built by **Manpreet Singh** to manage files, take notes, and use a built-in calendar — all in one lightweight, portable app.
