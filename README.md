@@ -52,7 +52,13 @@ If you get a `Failed to locate module "file-manager"` or something similar...
 
 **Fix:**
 - Delete `node_modules` and `package-lock.json`
-- Make sure your `package.json` does NOT have `"file-manager": "file:"` under `dependencies`
+- Make sure your `package.json` does NOT have `"file-manager": "file:"` under
+  ```bash
+    "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "sqlite3": "^5.1.7"
+  }
+  ```
 - Run:
   ```bash
   npm cache clean --force
