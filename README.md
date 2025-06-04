@@ -1,6 +1,6 @@
 # File Manager App
 <p align="center">
-  <img src="" width="100" alt="File Manager Icon">
+  <img src="https://github.com/Manpreet-Singh-2004/File-Manager-EXE/blob/main/iconPNG.png" width="100" alt="File Manager Icon">
 </p>
 
 A personal desktop application built by **Manpreet Singh** to manage files, take notes, and use a built-in calendar — all in one lightweight, portable app.
@@ -52,7 +52,13 @@ If you get a `Failed to locate module "file-manager"` or something similar...
 
 **Fix:**
 - Delete `node_modules` and `package-lock.json`
-- Make sure your `package.json` does NOT have `"file-manager": "file:"` under `dependencies`
+- Make sure your `package.json` does NOT have `"file-manager": "file:"` under
+  ```bash
+    "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "sqlite3": "^5.1.7"
+  }
+  ```
 - Run:
   ```bash
   npm cache clean --force
